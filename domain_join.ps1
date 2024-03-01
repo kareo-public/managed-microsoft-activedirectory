@@ -196,65 +196,6 @@ function Perform-DomainJoin {
   Restart-Computer
 }
 
-
-function Perform-SecurityGroupJoin {
-  $domainName = Get-Metadata "$attributeURL/$domainKey"
-  $fullTokenResponse = Get-Metadata $fullTokenUrl
-  # Set default ou name as empty string
-  $ouName = ''
-  try {
-   $ouName = (Get-Metadata "$attributeURL/$ouNameKey")
-  }
-  catch {
-    Write-Output 'OUName StatusCode:' $_.Exception.Response.StatusCode.value__
-    Write-Output 'OUName StatusDescription:' $_.Exception.Response.StatusDescription
-  }
-
-  $hostName = hostname
-  $body = @{
-      domain = $domainName
-      ouName = $ouName
-      vmIdToken = $fullTokenResponse
-  }
-  $forceFlag = Get-Metadata "$attributeURL/$forceKey"
-  if ($forceFlag -eq $true) {
-      $body.force = $true
-  }
-
-  $bodyJson = $body|ConvertTo-Json
-  $domainJoinUrl = "https://$endpoint/v1/$domainName" + ':domainJoinMachine'
-  $accessTokenResponse = Get-Metadata $tokenUrl
-
-  $accessToken = $accessTokenResponse.access_token
-
-  $header = @{
-   'Accept'= 'application/json'
-   'Authorization'="Bearer $accessToken"
-  }
-  $response = Invoke-RestMethod -Uri $domainJoinUrl -Method POST -Body $bodyJson -Headers $header -ContentType 'application/json'
-  $blob = $response.domainJoinBlob
-
-  Write-DjoinBlob -Blob $blob -Verbose
-
-  Write-Output 'Performing security group join'
-  $ComputerDn = ([ADSISEARCHER]"sAMAccountName=$($env:COMPUTERNAME)$").FindOne().Path
-  $ComputerDn
-  $GroupDn = ([ADSISEARCHER]"sAMAccountName=$("dev-gmsa-dlg")").FindOne().Path
-  $GroupDn
-  $Group = [ADSI]"$GroupDn"
-  $Group
-  $Group.Add($ComputerDn)
-  #$processResponse = START-PROCESS Djoin -windowstyle hidden -ArgumentList "/requestodj /loadfile $domainJoinFile /windowspath $env:SystemRoot /localos" -PassThru -Wait
-  #if ($processResponse.ExitCode -ne 0) {
-  #  throw "Domain join command failed : $processResponse"
-  #}
-
-  Write-Output 'Domain join finished'
-  #Write-DjoinStatus -djoinStatus 'success' -djoinFailureMessage 'nil'
-
-}
-
-
 try {
   # check if the VM is already part of domain
   if ((Get-WmiObject win32_computersystem).partofdomain -eq $true) {
