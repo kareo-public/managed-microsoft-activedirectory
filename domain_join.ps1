@@ -265,6 +265,9 @@ try {
   # check if the VM is already part of domain
   if ((Get-WmiObject win32_computersystem).partofdomain -eq $true) {
     Write-Output 'VM already domain joined'
+    Write-Output 'Joining security group : start'
+    Perform-sga
+    Write-Output 'Joining security group : finish'
     exit
   }
   Perform-DomainJoin
